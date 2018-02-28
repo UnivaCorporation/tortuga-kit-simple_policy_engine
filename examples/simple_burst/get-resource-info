@@ -1,0 +1,235 @@
+#!/usr/bin/env python
+
+# Copyright 2008-2018 Univa Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script replaces 'get_resource_info.sh' from the Simple Policy Engine
+# sample code.
+
+import sys
+import math
+import subprocess
+import xml.etree.cElementTree
+from optparse import OptionParser
+
+
+def get_job_slots(xmldom):
+    # Check for parallel environment job
+    pe_range = xmldom.find('.//djob_info/element/JB_pe_range')
+
+    if pe_range is not None:
+        # Process parallel environment job
+        return int(pe_range.find('element/RN_max').text)
+
+    # Find <JB_ja_structure> element
+    ja_structure = xmldom.find(
+        './/djob_info/element/JB_ja_structure')
+
+    if ja_structure is None:
+        return None
+
+    element = ja_structure.find('element')
+    if element is None:
+        element = ja_structure.find('task_id_range')
+
+    if element is None:
+        # Error parsing XML
+        return None
+
+    rn_min = float(element.find('RN_min').text)
+    rn_max = float(element.find('RN_max').text)
+    rn_step = float(element.find('RN_step').text)
+
+    if rn_min == rn_max and rn_step == 1:
+        return int(rn_max)
+
+    return 1 + int(math.ceil(rn_max - rn_min) / rn_step)
+
+
+def qstat_subprocess(cell_dir, *args):
+    cmd = 'source %s/common/settings.sh && qstat ' % (cell_dir) + \
+        ' '.join(args)
+
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1)
+
+    return p
+
+
+def iter_pending_jobs(cell_dir, queue_name):
+    """
+    Raises:
+        Exception
+    """
+
+    # Query all jobs in specified queue
+    p = qstat_subprocess(
+        cell_dir,
+        '-j "*" | awk \'/^job_number/ { job=$2 } /^hard_queue_list.*%s/'
+        ' {print job}\'' % (queue_name.replace('.', '\\.')))
+
+    while True:
+        buf = p.stdout.readline()
+        if not buf:
+            break
+
+        yield buf.rstrip()
+
+    retval = p.wait()
+    if retval != 0:
+        raise Exception('Error determining pending jobs')
+
+
+def get_job_xmldom(cell_dir, job_id):
+    p = qstat_subprocess(cell_dir, '-xml', '-j', job_id)
+
+    try:
+        xmldom = xml.etree.cElementTree.parse(p.stdout)
+    except xml.etree.cElementTree.ParseError:
+        xmldom = None
+
+    retval = p.wait()
+
+    if retval != 0 or xmldom is None:
+        raise Exception('Error parsing qstat output for job ID %s' % (job_id))
+
+    return xmldom
+
+
+def get_queue_running_job_count(cell_dir, queue_name):
+    p = qstat_subprocess(cell_dir,
+                         '-f -q %s -u "*" | grep " r " | wc -l' % (queue_name))
+
+    stdoutdata, _ = p.communicate()
+
+    return int(stdoutdata.strip())
+
+
+def get_software_profile_node_count(name):
+    cmd = ('/opt/tortuga/bin/get-software-profile-nodes'
+           '  --software-profile %s | wc -l' % (name))
+
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1)
+
+    while True:
+        buf = p.stdout.readline()
+        if not buf:
+            break
+
+        count = int(buf.rstrip())
+
+    retval = p.wait()
+
+    if retval != 0:
+        return 0
+
+    return count
+
+
+def main():
+    parser = OptionParser(usage="""\
+Usage: %prog [options] --software-profile=NAME --queue-name=NAME\
+ --cell-dir=PATH
+
+NOTE: this is an internal use application (used by Simply Policy Engine)""")
+
+    parser.add_option('--software-profile',
+                      help='Software profile associated with queue'
+                      ' (mandatory)')
+
+    parser.add_option('--queue-name', help='Queue used for bursting'
+                      '  (mandatory)')
+
+    parser.add_option('--cell-dir',
+                      help='UGE cell directory ($SGE_ROOT/$SGE_CELL)'
+                      ' (mandatory)')
+
+    parser.add_option('--slots-per-host',
+                      help='Slots available per host (default: %default)',
+                      default=1, type='int')
+
+    parser.add_option('--output',
+                      help='Output filename of generated XML')
+
+    options, args = parser.parse_args()
+
+    if options.software_profile is None or \
+            options.queue_name is None or \
+            options.cell_dir is None:
+        parser.error('--software-profile, --queue-name, and --cell-dir'
+                     ' arguments are required')
+
+    pendingBigJobs = 0
+    slots = 0
+
+    # Iterate over all jobs
+    for job_id in iter_pending_jobs(options.cell_dir, options.queue_name):
+        job_slots = get_job_slots(get_job_xmldom(options.cell_dir, job_id))
+
+        if job_slots is None:
+            # Error parsing XML for job
+            continue
+
+        pendingBigJobs += 1
+
+        slots += job_slots
+
+    queueRunningJobs = get_queue_running_job_count(
+        options.cell_dir, options.queue_name)
+
+    totalJobs = pendingBigJobs + queueRunningJobs
+
+    nodesInQueue = get_software_profile_node_count(
+        options.software_profile)
+
+    # Round 'needed slots' up to next multiple (slots_per_host)
+
+    # For example, if 3 slots are needed and each host provides 2
+    # slots, 2 hosts will be needed.
+
+    needed_slots = math.ceil(
+        float(slots) / float(options.slots_per_host)) * \
+        float(options.slots_per_host)
+
+    available_slots = int(nodesInQueue * options.slots_per_host)
+
+    neededNodes = (needed_slots - available_slots) / options.slots_per_host
+
+    extraNodes = (available_slots - needed_slots) / options.slots_per_host
+
+    # Output XML
+
+    a = xml.etree.cElementTree.Element('resourceData')
+    a.attrib['queue'] = options.queue_name
+
+    pendingJobsElement = xml.etree.cElementTree.SubElement(a, 'pendingJobs')
+    pendingJobsElement.text = '%d' % (pendingBigJobs)
+    queueRunningJobsElement = xml.etree.cElementTree.SubElement(
+        a, 'queueRunningJobs')
+    queueRunningJobsElement.text = '%d' % (queueRunningJobs)
+    totalJobsElement = xml.etree.cElementTree.SubElement(a, 'totalJobs')
+    totalJobsElement.text = '%d' % (totalJobs)
+    nodesInQueueElement = xml.etree.cElementTree.SubElement(a, 'nodesInQueue')
+    nodesInQueueElement.text = '%d' % (nodesInQueue)
+    neededNodesElement = xml.etree.cElementTree.SubElement(a, 'neededNodes')
+    neededNodesElement.text = '%d' % (neededNodes)
+    extraNodesElement = xml.etree.cElementTree.SubElement(a, 'extraNodes')
+    extraNodesElement.text = '%d' % (extraNodes)
+
+    xml.etree.cElementTree.ElementTree(a).write(
+        options.output if options.output else sys.stdout,
+        encoding='utf-8')
+
+
+if __name__ == '__main__':
+    main()

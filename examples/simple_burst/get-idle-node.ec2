@@ -1,0 +1,413 @@
+#!/usr/bin/env python
+
+# Copyright 2008-2018 Univa Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pylint: disable=no-member
+
+import subprocess
+import os
+import sys
+import ConfigParser
+import datetime
+
+# I've yet to encounter a version of Python that does not include the
+# compiled version of 'xml.etree.ElementTree', but just in case...
+
+try:
+    import xml.etree.cElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
+
+try:
+    import boto.ec2
+except ImportError:
+    sys.stderr.write('Error: unable to import Boto AWS module\n')
+    sys.exit(1)
+
+from tortuga.softwareprofile.softwareProfileFactory \
+    import getSoftwareProfileApi
+from tortuga.cli.tortugaCli import TortugaCli
+try:
+    from tortuga.resourceAdapter.aws import Aws
+except ImportError:
+    sys.stderr.write('Error: unable to import AWS resource adapter\n')
+    sys.exit(1)
+
+# Number of minutes per hour an instance should run.
+TERMINATE_AFTER_MINUTES = 57
+
+# Policy engine polling interval (in seconds)
+POLICY_ENGINE_POLLING_INTERVAL = 300
+
+# !!!! DO NOT EDIT BELOW THIS LINE !!!!
+
+
+# Compare function to sort list of tuples (hostname, runtime) by runtime
+def comp(i1, i2):
+    if i1[1] > i2[1]:
+        return -1
+
+    if i1[1] < i2[1]:
+        return 1
+
+    return 0
+
+
+class GetIdleNodeCli(TortugaCli):
+    def __init__(self):
+        super(GetIdleNodeCli, self).__init__(validArgCount=1)
+
+        self.api = getSoftwareProfileApi()
+
+        envvar = os.getenv('TORTUGA_ROOT')
+
+        self.tortuga_root = envvar if envvar is not None else '/opt/tortuga'
+
+        self._instance_cache_filename = os.path.join(
+            self.tortuga_root, 'var', 'aws-instance.conf')
+
+        self._adapter = Aws()
+
+    def parseArgs(self, usage=None):
+        self.addOption('--verbose', action='store_true', default=False,
+                       help='Enable verbose output (for debugging purposes)',
+                       dest='verbose')
+
+        self.addOption('--polling-interval', dest='polling_interval',
+                       type='int', metavar='SECONDS',
+                       help='Simple Policy Engine polling interval'
+                       ' (default: %default seconds)',
+                       default=POLICY_ENGINE_POLLING_INTERVAL)
+
+        self.addOption('--ttl', dest='ttl', type='int',
+                       help='Minutes to run before termination'
+                            ' (default: %default minutes)',
+                       metavar='MINUTES',
+                       default=TERMINATE_AFTER_MINUTES)
+
+        self.addOption('--software-profile',
+                       help='Software profile to check for idle nodes')
+
+        super(GetIdleNodeCli, self).parseArgs(usage=usage)
+
+        if not self.getOptions().software_profile:
+            self.getParser().error(
+                'Missing required --software-profile argument')
+
+    def runCommand(self):
+        self.parseArgs()
+
+        eligible_nodes = self.get_eligible_nodes(
+            self.api.getNodeList(self.getOptions().software_profile))
+
+        if not eligible_nodes:
+            # No nodes known to Tortuga that are eligible for idling
+            sys.exit(0)
+
+        if self.getOptions().verbose:
+            print '[info] eligible_nodes:'
+
+            for node_tuple in eligible_nodes:
+                print '[info]   - {0}'.format(node_tuple[0])
+
+        unused_nodes = self.get_unused_nodes()
+
+        # Calculate nodes that are eligible for idling. This does not account
+        # for nodes that have been running for less than the hourly threshold
+        idle_candidates = \
+            set([nodetuple[0] for nodetuple in eligible_nodes]) & unused_nodes
+
+        if not idle_candidates:
+            return
+
+        # Use AWS instance cache to Lookup instance id for specified nodes
+        instance_ids = self.get_instance_ids(idle_candidates)
+
+        # Build list of tuples (hostname, hwprofile)
+        _idle_candidates = []
+
+        for tmpnode, instance_id in zip(idle_candidates, instance_ids):
+            hwprofile = self.get_hardware_profile_for_host(
+                tmpnode, eligible_nodes)
+
+            _idle_candidates.append((tmpnode, hwprofile, instance_id))
+
+        nodes_to_idle = set()
+
+        # time-to-live in seconds; this is the amount of time an instance is
+        # permitted to run without load
+        ttl = self.getOptions().ttl * 60
+
+        # Polling interval (in seconds); this is the amount of time that will
+        # lapse before another check for idle nodes will be made. This value
+        # must match the polling interval of the simple policy engine polling
+        # rule.
+        interval = self.getOptions().polling_interval
+
+        launch_times = self.get_launch_times(_idle_candidates)
+
+        if self.getOptions().verbose:
+            print '[info] Polling interval: %d seconds' % (
+                self.getOptions().polling_interval)
+
+            print '[info] TTL: %d minutes (%d seconds)' % (
+                self.getOptions().ttl, self.getOptions().ttl * 60)
+
+        for hosttuple, launch_time in zip(_idle_candidates, launch_times):
+            hostname = hosttuple[0]
+
+            # Get the current time in a datetime.datetime object
+            now = datetime.datetime.utcnow()
+
+            # Calculate the timedelta between launch time of the instance and
+            # now
+            running_timedelta = now - launch_time
+
+            # Calculate number of seconds the instance has been running IN THIS
+            # HOUR by subtracting the number of whole hours already lapsed.
+            # The result is the number of seconds the instance has been running
+            # in the partial hour.
+            running_seconds = running_timedelta.seconds % 3600
+
+            # If the number of running seconds in this hour (default is 57
+            # minutes or 3420 seconds) exceeds the TTL threshhold, the host
+            # name is added to the set of nodes that can be idled.
+            #
+            # If 'running_seconds' + the polling interval exceeds the TTL, the
+            # node will also be idled. That way, if the instance would be
+            # running for another full hour or more after the next interval, we
+            # terminate it prematurely.
+
+            if self.getOptions().verbose:
+                print '[info] hostname: %s, runtime this hour: %ss' % (
+                    hostname, running_seconds)
+
+            if running_seconds > ttl or (running_seconds + interval > ttl):
+                nodes_to_idle.add((hostname, running_seconds,))
+
+        if not nodes_to_idle:
+            sys.exit(0)
+
+        print '\n'.join(
+            [node[0] for node in sorted(
+                nodes_to_idle, key=lambda x: x[1], reverse=True)])
+
+    def get_eligible_nodes(self, nodes, cost=0): \
+            # pylint: disable=no-self-use
+        """
+        Get list of (cost, hostname, hwprofile) tuples ordered by cost.  This
+        function is used to query active nodes in a software profile that have
+        a cost greater than 0.
+        """
+
+        result = []
+
+        for node in nodes:
+            if node.getIsIdle():
+                # Ignore idle nodes
+                if self.getOptions().verbose:
+                    sys.stderr.write(
+                        '[info] Node [{0}] is already idle\n'.format(
+                            node.getName()))
+
+                continue
+
+            hwprofile_cost = int(node.getHardwareProfile().getCost())
+
+            if hwprofile_cost == 0 or hwprofile_cost < cost:
+                if self.getOptions().verbose:
+                    sys.stderr.write(
+                        '[info] Ignoring node [{0}] due to cost'
+                        ' ([{1}])\n'.format(node.getName(), hwprofile_cost))
+
+                continue
+
+            result.append((hwprofile_cost,
+                           node.getName(),
+                           node.getHardwareProfile().getName()))
+
+        return [(name, hwprofile_name)
+                for _, name, hwprofile_name in sorted(
+                    result, key=lambda x: x[0], reverse=True)]
+
+    def get_unused_nodes(self): \
+            # pylint: disable=no-self-use
+        """
+        Use UGE 'qstat' to determine which nodes have running jobs
+        """
+
+        devnull = open(os.devnull, 'w')
+
+        unused_nodes = set()
+
+        slot_usage = {}
+
+        try:
+            fp = subprocess.Popen('qstat -f -xml', stdout=subprocess.PIPE,
+                                  stderr=devnull, shell=True, bufsize=1)
+
+            try:
+                et = ET.parse(fp.stdout)
+
+                for element in et.findall('.//queue_info/Queue-List'):
+                    queue_tuple = element.find('name').text.split('@')
+
+                    slots_used = int(element.find('slots_used').text)
+
+                    hostname = queue_tuple[1]
+
+                    if hostname not in slot_usage:
+                        slot_usage[hostname] = slots_used
+                    else:
+                        slot_usage[hostname] += slots_used
+
+                unused_nodes = set(
+                    [hostn for hostn, slots_in_use in slot_usage.iteritems()
+                     if slots_in_use == 0])
+            except ET.ParseError:
+                # Malformed response from 'qstat' (ie. qmaster is inaccessible)
+                pass
+        finally:
+            devnull.close()
+
+        return unused_nodes
+
+    def get_instance_id_from_cache(self, cfg, hostname): \
+            # pylint: disable=no-self-use
+        if cfg.has_section(hostname) and \
+           cfg.has_option(hostname, 'instance'):
+            return cfg.get(hostname, 'instance')
+
+        return None
+
+    def get_instance_ids(self, nodes):
+        cfg = ConfigParser.ConfigParser()
+
+        if not os.path.exists(self._instance_cache_filename):
+            # Instance cache file does not exist, return empty set
+            return set()
+
+        cfg.read(self._instance_cache_filename)
+
+        instance_ids = [self.get_instance_id_from_cache(cfg, hostname)
+                        for hostname in nodes]
+
+        return instance_ids
+
+    def ec2_get_launch_time(self, aws_access_key_id, aws_secret_access_key,
+                            instance_ids): \
+            # pylint: disable=no-self-use
+        conn = boto.ec2.connection.EC2Connection(
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key)
+
+        reservations = conn.get_all_instances(instance_ids=instance_ids)
+
+        launch_times = []
+
+        launch_times = [i.launch_time for resv in reservations
+                        for i in resv.instances]
+
+        return launch_times
+
+    def get_aws_keys_for_hwprofile(self, adapter_profile):
+        configDict = self._adapter.getResourceAdapterConfig(
+            sectionName=adapter_profile)
+
+        if self.getOptions().verbose:
+            if not configDict['awsaccesskey'] or \
+                    not configDict['awssecretkey']:
+                print ('[info] AWS access/secret key are empty;'
+                       ' using IAM profile')
+
+        return configDict['awsaccesskey'], configDict['awssecretkey']
+
+    def update_aws_cache(self, cfg, hostname, attributes): \
+            # pylint: disable=no-self-use
+        if cfg.has_section(hostname):
+            for key, value in attributes.iteritems():
+                cfg.set(hostname, key, value)
+
+    def __get_resource_adapter_configuration_profile(self, cfg, hostname): \
+            # pylint: disable=no-self-use
+        if cfg.has_section(hostname) and \
+                cfg.has_option(hostname, 'resource_adapter_configuration'):
+            return cfg.get(hostname, 'resource_adapter_configuration')
+
+        return None
+
+    def get_launch_times(self, hosttuples):
+        """
+        'hosttuples' is a list of (hostname, hwprofile, instance_id) tuples.
+
+        Attempt to check the cache for the launch time before reaching out to
+        AWS.
+        """
+
+        launch_times = []
+
+        cfg = ConfigParser.ConfigParser()
+        cfg.read(self._instance_cache_filename)
+
+        key_cache = {}
+
+        for hostname, hwprofile, instance_id in hosttuples:
+            # Reach out to AWS to get the launch time for the specified
+            # instance
+
+            # Look up AWS credentials for hwprofile
+            if hwprofile not in key_cache:
+                # Credentials not cached, load credentials from resource
+                # adapter configuration.
+
+                adapter_profile = \
+                    self.__get_resource_adapter_configuration_profile(
+                        cfg, hostname)
+
+                access_key, secret_key = \
+                    self.get_aws_keys_for_hwprofile(adapter_profile)
+
+                key_cache[hwprofile] = {
+                    'access_key': access_key,
+                    'secret_key': secret_key,
+                }
+            else:
+                access_key = key_cache[hwprofile]['access_key']
+                secret_key = key_cache[hwprofile]['secret_key']
+
+            results = self.ec2_get_launch_time(
+                access_key, secret_key, [instance_id])
+
+            launch_time = results[0] if results else None
+
+            # Convert launch time string to datetime.datetime object
+            start_time = datetime.datetime.strptime(
+                launch_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+
+            launch_times.append(start_time)
+
+        return launch_times
+
+    def get_hardware_profile_for_host(self, hostname, hosttuples): \
+            # pylint: disable=no-self-use
+        for hosttuple in hosttuples:
+            if hostname == hosttuple[0]:
+                return hosttuple[1]
+
+        return None
+
+
+if __name__ == '__main__':
+    GetIdleNodeCli().run()

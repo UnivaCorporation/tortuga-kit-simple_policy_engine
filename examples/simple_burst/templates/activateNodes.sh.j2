@@ -1,0 +1,82 @@
+#!/bin/bash
+
+#######################################################################
+##                                                                   ##
+##   Copyright (c) 2011-2017, Univa.  All rights reserved.           ##
+##   Copyright (c) 2010, Univa UD.  All rights reserved.             ##
+##   http://univa.com                                                ##
+##                                                                   ##
+##   License:                                                        ##
+##     Tortuga Draft                                                ##
+##                                                                   ##
+##   Description:                                                    ##
+##                                                                   ##
+#######################################################################
+
+readonly TEMP=$(getopt -o v,n: --long verbose,debug,help,software-profile:,hardware-profile:,count: -n $(basename $0) -- "$@")
+[[ $? -eq 0 ]] || {
+    echo "Terminating..." >&2
+    exit 1
+}
+
+eval set -- "${TEMP}"
+
+count=1
+
+function usage() {
+    echo "usage: $(basename $0) --software-profile <name> --hardware-profile <name>" >&2
+    exit 1
+}
+
+while true; do
+    case "$1" in
+        -v|--verbose)
+            VERBOSE=1
+            shift
+            ;;
+        --software-profile)
+            software_profile=$2
+            shift 2
+            ;;
+        --hardware-profile)
+            hardware_profile=$2
+            shift 2
+            ;;
+        --count|-n)
+            count=$2
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Internal error!" >&2
+            exit 1
+            ;;
+    esac
+done
+
+[[ -n ${software_profile} ]] && [[ -n ${hardware_profile} ]] || {
+    usage
+    exit 1
+}
+
+. {{ tortuga_root }}/etc/tortuga.sh
+
+# Convert float value to integer
+count=$(printf "%d" ${count})
+
+# Do not allow add operation to proceed if any nodes in the burst profile
+# are not in the 'Installed' state. This prevents the burst operation from
+# running away in the event of failed provisioning.
+[[ $(get-node-status --list --software-profile ${software_profile} --not-installed) -eq 0 ]] || {
+    echo "Add nodes operation currently in progress..." >&2
+    exit 1
+}
+
+add-nodes --count ${count} \
+    --software-profile ${software_profile} \
+    --hardware-profile ${hardware_profile}
+
+exit 0

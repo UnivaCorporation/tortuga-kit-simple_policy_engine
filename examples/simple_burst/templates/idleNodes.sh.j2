@@ -1,0 +1,96 @@
+#!/bin/bash
+
+#######################################################################
+##                                                                   ##
+##   Copyright (c) 2011-2017, Univa.  All rights reserved.           ##
+##   Copyright (c) 2010, Univa UD.  All rights reserved.             ##
+##   http://univa.com                                                ##
+##                                                                   ##
+##   License:                                                        ##
+##     Tortuga Draft                                                ##
+##                                                                   ##
+##   Description:                                                    ##
+##                                                                   ##
+#######################################################################
+
+POLLING_INTERVAL="300"
+
+# terminate after 57 minutes
+TTL=57
+
+readonly TEMP=$(getopt -o v,n: --long verbose,debug,help,software-profile:,count: -n $(basename $0) -- "$@")
+[[ $? -eq 0 ]] || {
+    echo "Terminating..." >&2
+    exit 1
+}
+
+eval set -- "${TEMP}"
+
+count=1
+
+function usage() {
+    echo "usage: $(basename $0) --software-profile <name>" >&2
+    exit 1
+}
+
+while true; do
+    case "$1" in
+        -v|--verbose)
+            VERBOSE=1
+            shift
+            ;;
+        --software-profile)
+            software_profile=${2}
+            shift 2
+            ;;
+        --hardware-profile)
+            hardware_profile=${2}
+            shift 2
+            ;;
+        --count|-n)
+            count=$2
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Internal error!" >&2
+            exit 1
+            ;;
+    esac
+done
+
+[[ -n ${software_profile} ]] || {
+    usage
+    exit 1
+}
+
+# Use Python helper script to determine which hosts in the UGE cluster are
+# currently unused (used slot count is 0)
+
+source {{ tortuga_root }}/etc/tortuga.sh
+source {{ uge_cell_dir }}/common/settings.sh
+
+# Convert float value to integer
+count=$(printf "%d" ${count})
+
+execdhosts=$({{ script_dir }}/get-idle-node --polling-interval $POLLING_INTERVAL --ttl ${TTL} --software-profile ${software_profile} | head -n ${count})
+
+RET=$?
+
+if [[ ${RET} -ne 0 ]] || [[ -z ${execdhosts} ]]; then exit 1; fi
+
+for execdhost in ${execdhosts}; do
+    # Disable host from accepting add'l jobs. This will prevent jobs from being
+    # scheduled in the time between the node being selected for idling and the
+    # actual idle process.
+
+    qmod -d \*@${execdhost}
+
+    # Instruct Tortuga to delete node
+    delete-node --node ${execdhost}
+done
+
+exit 0
