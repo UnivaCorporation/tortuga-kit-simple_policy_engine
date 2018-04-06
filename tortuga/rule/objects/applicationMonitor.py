@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
-from tortuga.objects.tortugaObject import TortugaObject
 import time
 
+from tortuga.objects.tortugaObject import TortugaObject
 
-class ApplicationMonitor(TortugaObject): \
-        # pylint: disable=too-many-public-methods
+
+class ApplicationMonitor(TortugaObject):
 
     ROOT_TAG = 'applicationMonitor'
 

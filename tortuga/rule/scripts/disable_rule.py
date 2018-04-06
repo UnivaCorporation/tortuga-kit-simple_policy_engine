@@ -14,26 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
 from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
 
 
 class DisableRuleCli(RuleCli):
     """
     Disable rule command line interface.
+
     """
-
     def __init__(self):
-        RuleCli.__init__(self)
-
+        super().__init__()
         self.addOption('--app-name', dest='applicationName',
                        help=_('Application name'))
         self.addOption('--rule-name', dest='ruleName', help=_('Rule name'))
 
     def runCommand(self):
-        """ Run command. """
         self.parseArgs(_("""
     disable-rule --app-name=APPNAME --rule-name=RULENAME
 
@@ -42,12 +37,9 @@ Description:
     Engine.
 """))
 
-        applicationName, ruleName = self.getApplicationNameAndRuleName()
-
-        api = getRuleApi(self.getUsername(), self.getPassword())
-
-        api.disableRule(applicationName, ruleName)
+        application_name, rule_name = self.getApplicationNameAndRuleName()
+        self.get_rule_api().disableRule(application_name, rule_name)
 
 
-if __name__ == '__main__':
+def main():
     DisableRuleCli().run()

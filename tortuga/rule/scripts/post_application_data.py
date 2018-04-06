@@ -15,20 +15,22 @@
 # limitations under the License.
 
 import os.path
-from tortuga.cli.tortugaCli import TortugaCli
-from tortuga.rule.ruleApiFactory import getRuleApi
-from tortuga.exceptions.invalidCliRequest import InvalidCliRequest
+
 from tortuga.exceptions.fileNotFound import FileNotFound
+from tortuga.exceptions.invalidCliRequest import InvalidCliRequest
+from ..ruleCli import RuleCli
 
 
-class PostApplicationDataCli(TortugaCli):
+class PostApplicationDataCli(RuleCli):
     """
     Post app. data command line interface.
     """
     def __init__(self):
-        TortugaCli.__init__(self)
-        self.addOption('--app-name', dest='applicationName', help=_('Application name'))
-        self.addOption('--data-file', dest='dataFile', help=_('Application data file'))
+        super().__init__()
+        self.addOption('--app-name', dest='applicationName',
+                       help=_('Application name'))
+        self.addOption('--data-file', dest='dataFile',
+                       help=_('Application data file'))
 
     def runCommand(self):
         self.parseArgs(_("""
@@ -38,23 +40,28 @@ Description:
     The  post-application-data tool posts an XML file to the Tortuga Rule
     Engine web service as input for configured rules.
 """))
-        applicationName = self.getArgs().applicationName
-        if not applicationName:
+        application_name = self.getArgs().applicationName
+
+        if not application_name:
             raise InvalidCliRequest(_('Missing application name.'))
-        dataFile = self.getArgs().dataFile
-        if not dataFile:
+        data_file = self.getArgs().dataFile
+
+        if not data_file:
             raise InvalidCliRequest(_('Missing application data file.'))
-        if not os.path.exists(dataFile):
-            raise FileNotFound(_('Invalid application data file: %s.') % dataFile)
-        f = open(dataFile, 'r')
-        applicationData = f.read()
+
+        if not os.path.exists(data_file):
+            raise FileNotFound(_('Invalid application data file: %s.') % data_file)
+
+        f = open(data_file, 'r')
+        application_data = f.read()
         f.close()
-        if not len(applicationData):
+
+        if not len(application_data):
             raise InvalidCliRequest(_('Empty application data file.'))
 
-        api = getRuleApi(self.getUsername(), self.getPassword())
-        api.postApplicationData(applicationName, applicationData)
+        self.get_rule_api().postApplicationData(application_name,
+                                                application_data)
 
 
-if __name__ == '__main__':
+def main():
     PostApplicationDataCli().run()

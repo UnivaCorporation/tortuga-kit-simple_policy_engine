@@ -15,12 +15,14 @@
 # pylint: disable=W0703
 
 import base64
+
 import cherrypy
 
-from tortuga.web_service.ruleManager import ruleManager
 from tortuga.exceptions.invalidArgument import InvalidArgument
-from .tortugaController import TortugaController
-from .authController import require
+from tortuga.web_service.controllers.authController import require
+from tortuga.web_service.controllers.tortugaController import \
+    TortugaController
+from ..ruleManager import ruleManager
 
 
 class ApplicationMonitorController(TortugaController):
@@ -41,31 +43,32 @@ class ApplicationMonitorController(TortugaController):
     @cherrypy.tools.json_in()
     @require()
     def receiveApplicationData(self, application_name):
-        """ Receive application monitoring data. """
+        """
+        Receive application monitoring data.
 
+        """
         response = None
 
         self.getLogger().debug(
-            '[%s] Received data for: %s' % (
-                self.__module__, application_name))
+            '[{}] Received data for: {}'.format(self.__module__,
+                                                application_name))
 
         try:
             postdata = cherrypy.request.json
-
             if 'data' not in postdata:
                 raise InvalidArgument('Malformed application data')
-
-            applicationData = base64.decodestring(
+            application_data = base64.decodebytes(
                 base64.b64decode(postdata['data']))
-
             ruleManager.receiveApplicationData(
-                application_name, applicationData)
+                application_name, application_data)
+
         except TypeError:
             errmsg = 'Malformed data payload (base64 decode failed)'
             self.getLogger().debug(
-                '[%s] receiveApplicationData(): %s' % (
-                    self.__module__, errmsg))
+                '[{}] receiveApplicationData(): {}'.format(self.__module__,
+                                                           errmsg))
             response = self.errorResponse(errmsg)
+
         except Exception as ex:
             self.getLogger().debug('[%s] %s' % (self.__module__, ex))
             self.handleException(ex)

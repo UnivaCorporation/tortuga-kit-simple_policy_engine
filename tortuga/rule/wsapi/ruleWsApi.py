@@ -26,8 +26,8 @@ from .tortugaWsApi import TortugaWsApi
 class RuleWsApi(TortugaWsApi):
     """
     Rule WS API class.
-    """
 
+    """
     def getRule(self, applicationName, ruleName):
         """
         Get rule info.

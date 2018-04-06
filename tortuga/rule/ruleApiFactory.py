@@ -11,3 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
+def getRuleApi(username=None, password=None):
+    """
+    Creates an object that derives from RuleApiInterface
+    Only WS API is supported for now.
+    """
+
+    from tortuga.wsapi import ruleWsApi
+    api = ruleWsApi.RuleWsApi(username, password)
+
+    return api

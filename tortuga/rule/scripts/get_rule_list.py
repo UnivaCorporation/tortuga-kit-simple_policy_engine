@@ -14,17 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
 from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
 
 
 class GetRuleListCli(RuleCli):
     """
     Get rule list command line interface.
-    """
 
+    """
     def runCommand(self):
         self.parseArgs(_("""
     get-rule-list [options]
@@ -35,13 +32,10 @@ Description:
     add-rule.
 """))
 
-        api = getRuleApi(self.getUsername(), self.getPassword())
-
-        ruleList = api.getRuleList()
-
-        for r in ruleList:
-            print('%s' % r)
+        rule_list = self.get_rule_api().getRuleList()
+        for r in rule_list:
+            print('{}'.format(r))
 
 
-if __name__ == '__main__':
+def main():
     GetRuleListCli().run()

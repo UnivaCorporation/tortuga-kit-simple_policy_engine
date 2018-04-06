@@ -12,19 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
-from tortuga.objects.tortugaObject import TortugaObject
-from tortuga.objects.tortugaObject import TortugaObjectList
-from tortuga.objects import applicationMonitor
-from tortuga.objects import ruleCondition
-from tortuga.objects import xPathVariable
-
 import time
 
+from tortuga.objects import xPathVariable
+from tortuga.objects.tortugaObject import TortugaObject
+from tortuga.objects.tortugaObject import TortugaObjectList
+from . import applicationMonitor
+from . import ruleCondition
 
-class Rule(TortugaObject): \
-        # pylint: disable=too-many-public-methods
+
+class Rule(TortugaObject):
 
     ROOT_TAG = 'rule'
     ENABLED_STATUS = 'enabled'

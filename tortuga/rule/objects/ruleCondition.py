@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
 from tortuga.objects.tortugaObject import TortugaObject
 
 
-class RuleCondition(TortugaObject): \
-        # pylint: disable=too-many-public-methods
+class RuleCondition(TortugaObject):
 
     ROOT_TAG = 'condition'
 

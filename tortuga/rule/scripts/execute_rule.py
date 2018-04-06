@@ -14,25 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
-from tortuga.exceptions.invalidCliRequest import InvalidCliRequest
-from tortuga.exceptions.fileNotFound import FileNotFound
 import os
+
+from tortuga.exceptions.fileNotFound import FileNotFound
+from tortuga.exceptions.invalidCliRequest import InvalidCliRequest
+from tortuga.rule.ruleCli import RuleCli
 
 
 class ExecuteRuleCli(RuleCli):
     """
     Execute rule command line interface.
+
     """
     def __init__(self):
         RuleCli.__init__(self)
-        self.addOption('--app-name', dest='applicationName', help=_('Application name'))
+        self.addOption('--app-name', dest='applicationName',
+                       help=_('Application name'))
         self.addOption('--rule-name', dest='ruleName', help=_('Rule name'))
-        self.addOption('--data-file', dest='dataFile', help=_('Application data file'))
+        self.addOption('--data-file', dest='dataFile',
+                       help=_('Application data file'))
 
     def runCommand(self):
-        """ Run command. """
         self.parseArgs(_("""
     execute-rule --app-name=APPNAME --rule-name=RULENAME [--data-file=DATAFILE]
 
@@ -40,24 +42,25 @@ Description:
     The execute-rule tool forces execution of a given rule in the Tortuga Rule
     Engine.
 """))
-        applicationName, ruleName = self.getApplicationNameAndRuleName()
-        dataFile = self.getOptions().dataFile
-        applicationData = ''
-        if dataFile:
-            if not os.path.exists(dataFile):
-                raise FileNotFound(_('Invalid application data file: %s.') % dataFile)
+        application_name, rule_name = self.getApplicationNameAndRuleName()
+        data_file = self.getOptions().dataFile
+        application_data = ''
+        if data_file:
+            if not os.path.exists(data_file):
+                raise FileNotFound(
+                    _('Invalid application data file: {}').format(data_file)
+                )
             else:
-                f = open(dataFile, 'r')
-                applicationData = f.read()
+                f = open(data_file, 'r')
+                application_data = f.read()
                 f.close()
-                if not len(applicationData):
+                if not len(application_data):
                     raise InvalidCliRequest(_('Empty application data file.'))
 
-        api = getRuleApi(self.getUsername(), self.getPassword())
-        api.executeRule(applicationName, ruleName, applicationData)
-        print(_('Executed rule %s/%s') % (applicationName, ruleName))
+        self.get_rule_api().executeRule(application_name, rule_name,
+                                        application_data)
+        print(_('Executed rule {}/{}').format(application_name, rule_name))
 
 
-if __name__ == '__main__':
-    cli = ExecuteRuleCli()
-    cli.run()
+def main():
+    ExecuteRuleCli().run()
