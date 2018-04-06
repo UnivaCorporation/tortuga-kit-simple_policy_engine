@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member,maybe-no-member
-
-import json
 import base64
-import urllib.request, urllib.parse, urllib.error
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
 
-from tortuga.objects import rule
 from tortuga.exceptions.tortugaException import TortugaException
-from .tortugaWsApi import TortugaWsApi
+from tortuga.wsapi.tortugaWsApi import TortugaWsApi
+from ..objects import rule
 
 
 class RuleWsApi(TortugaWsApi):
