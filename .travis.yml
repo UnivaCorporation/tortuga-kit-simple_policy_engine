@@ -1,0 +1,29 @@
+language: python
+python:
+- '3.6'
+services:
+- docker
+env:
+- TORTUGA_BUILD_DOCKER="true"
+before_install:
+- docker pull puppet/puppet-agent
+install:
+- pip install tox
+- git clone https://github.com/UnivaCorporation/tortuga.git tortuga-base
+- cd tortuga-base/
+- pip install -r requirements.txt
+- paver build
+- cd ../
+- build-kit
+script:
+- echo "Done"
+deploy:
+  provider: releases
+  api_key:
+    secure: Vh14m+kyKuoks4EVHLss7FOUvLHAICHF9y+VTK+2bmPAdaS5Wczx98ejzYGBR2BmSOMuWG3ySHaOgRs1oVnp6AT6VJQmcF0S4yVcVLbOmGsfpiPjjcxTiCCvz6mbwq8oRuVfyd2XRPjBrS61nn+FPE3jtLoAD0tANRFb6M+UujU/GGEFP9kT9Af9UySnc9UayD6qYxB+rUKkbnIBDuyg7kmphLnfZ14hL50cOtiWmYcAoB7gYhvK2wPtDoqjy3KAJtynkZ1dG3YfkbDxsJnXqk6nbCRMftzBGx3ql2zLskqmDsf0KsP8RuniGNUf23P53EQ9dYV1i7tokAmP7HbxgBRQ28KYjTVujnculGFjaonnAUn++n2jqPLfcF8Q3S/KDw9Wnu8sAuniSEttRgup+ZSjh5GmvMkNY+aQpiF8o+6KC/F2lkTrqPrtLzo0hrUn/H4VryP7Akzx19rdiKhm9TjZ2zgYHRVNyS2x2rH8rnepLEixN9EKdlR0M4PTX1cGzs5MzRKkvShYjvYodmanQwfrUMCEbE6XBzYUR7tjuSQ6IhFGjLosWc6SpFI2VM29BEV6zgOqA1G5HQjKCPhhug6mTN1Y7zSOnPp4w1xiVOUdYJcdJ2hLND1eXOFR9Q2Staw6o7i6pRsLfZc7GYeQzkWAXms9Btz9wlWdGW1G4Jw=
+  file_glob: true
+  file: "dist/kit-simple_policy_engine*.tar.bz2"
+  skip_cleanup: true
+  on:
+    all_branches: true
+    tags: true
