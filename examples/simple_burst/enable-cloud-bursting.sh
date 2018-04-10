@@ -96,8 +96,7 @@ is_resadapter_enabled() {
 resadapters=($(get-resource-adapter-list | grep -v ^default$))
 
 [[ ${#resadapters[@]} -eq 1 ]] || {
-    echo "Error: this script will not run in a multi-cloud provider environment.
-Please use manual installation procedure." >&2
+    echo "Error: you must have at least one resource adapter installed." >&2
     exit 1
 }
 
