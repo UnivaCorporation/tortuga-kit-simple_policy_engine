@@ -12,23 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os.path
 import logging
+import os.path
 from xml.dom import minidom
+
 from jinja2 import Template
 
-from tortuga.exceptions.tortugaException import TortugaException
+from tortuga.config.configManager import ConfigManager
 from tortuga.exceptions.fileNotFound import FileNotFound
 from tortuga.exceptions.invalidXml import InvalidXml
-from tortuga.objects.rule import Rule
-from tortuga.objects.ruleCondition import RuleCondition
-from tortuga.objects.applicationMonitor import ApplicationMonitor
-from tortuga.utility import xmlParserUtility
-from .ruleXmlParserInterface import RuleXmlParserInterface
-from tortuga.objects.xPathVariable import XPathVariable
-from tortuga.config.configManager import ConfigManager
+from tortuga.exceptions.tortugaException import TortugaException
 from tortuga.kit.kitApi import KitApi
 from tortuga.kit.utils import format_kit_descriptor
+from tortuga.objects.xPathVariable import XPathVariable
+from tortuga.utility import xmlParserUtility
+from .objects.applicationMonitor import ApplicationMonitor
+from .objects.rule import Rule
+from .objects.ruleCondition import RuleCondition
+from .ruleXmlParserInterface import RuleXmlParserInterface
 
 
 class RuleXmlParser(RuleXmlParserInterface):

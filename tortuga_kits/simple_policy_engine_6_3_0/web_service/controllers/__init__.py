@@ -11,3 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from tortuga.web_service.controllers import register_ws_controller
+from .applicationMonitorController import ApplicationMonitorController
+from .ruleController import RuleController
+
+
+register_ws_controller(ApplicationMonitorController)
+register_ws_controller(RuleController)
