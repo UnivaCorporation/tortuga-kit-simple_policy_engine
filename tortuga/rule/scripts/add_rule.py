@@ -14,27 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
-from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
-from tortuga.rule.ruleObjectFactory import RuleObjectFactory
 from tortuga.exceptions.invalidCliRequest import InvalidCliRequest
+from ..ruleCli import RuleCli
+from ..ruleObjectFactory import RuleObjectFactory
 
 
 class AddRuleCli(RuleCli):
     """
     Add rule command line interface.
+
     """
-
     def __init__(self):
-        RuleCli.__init__(self)
-
+        super().__init__()
         self.addOption('--desc-file', dest='descriptionFile',
                        help=_('Rule description file'))
 
     def runCommand(self):
-        """ Run command. """
         self.parseArgs(_("""
     add-rule --desc-file=DESCRIPTIONFILE
 
@@ -47,11 +42,9 @@ Description:
                 _('Missing required --desc-file argument'))
 
         parser = RuleObjectFactory().getParser()
-
         rule = parser.parse(self.getOptions().descriptionFile)
+        self.get_rule_api().addRule(rule)
 
-        getRuleApi(self.getUsername(), self.getPassword()).addRule(rule)
 
-
-if __name__ == '__main__':
+def main():
     AddRuleCli().run()

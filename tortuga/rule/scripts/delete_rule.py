@@ -14,34 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
 from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
 
 
-class GetRuleListCli(RuleCli):
+class DeleteRuleCli(RuleCli):
     """
-    Get rule list command line interface.
+    Delete rule command line interface.
+
     """
+    def __init__(self):
+        super().__init__()
+        self.addOption('--app-name', dest='applicationName',
+                       help=_('Application name'))
+        self.addOption('--rule-name', dest='ruleName', help=_('Rule name'))
 
     def runCommand(self):
         self.parseArgs(_("""
-    get-rule-list [options]
+    delete-rule --app-name=APPNAME --rule-name=RULENAME
 
 Description:
-    The get-rule-list tool returns the list of Tortuga Simple Policy Engine
-    rules that are active in the system.  New rules can be added  with
-    add-rule.
+    The  delete-rule  tool  removes  a  rule  from  from the Tortuga Rule
+    Engine.
 """))
-
-        api = getRuleApi(self.getUsername(), self.getPassword())
-
-        ruleList = api.getRuleList()
-
-        for r in ruleList:
-            print('%s' % r)
+        application_name, rule_name = self.getApplicationNameAndRuleName()
+        self.get_rule_api().deleteRule(application_name, rule_name)
+        print(_('Deleted rule {}/{}').format(application_name, rule_name))
 
 
-if __name__ == '__main__':
-    GetRuleListCli().run()
+def main():
+    DeleteRuleCli().run()
