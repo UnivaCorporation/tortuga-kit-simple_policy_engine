@@ -17,7 +17,7 @@ import cherrypy
 
 from tortuga.exceptions.invalidArgument import InvalidArgument
 from tortuga.exceptions.ruleNotFound import RuleNotFound
-from tortuga.web_service.controllers.authController import require
+from tortuga.web_service.auth.decorators import authentication_required
 from tortuga.web_service.controllers.tortugaController import \
     TortugaController
 from ..ruleManager import ruleManager, ruleObjectFactory
@@ -76,7 +76,7 @@ class RuleController(TortugaController):
         },
     ]
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def getRule(self, application_name, rule_name):
@@ -100,7 +100,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def getRuleList(self):
@@ -123,7 +123,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def addRule(self, application_name, rule_name):
@@ -169,7 +169,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def deleteRule(self, application_name, rule_name):
@@ -192,7 +192,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def enableRule(self, application_name, rule_name):
@@ -214,7 +214,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def disableRule(self, application_name, rule_name):
@@ -236,7 +236,7 @@ class RuleController(TortugaController):
 
         return self.formatResponse(response)
 
-    @require()
+    @authentication_required()
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
     def executeRule(self, application_name, rule_name):

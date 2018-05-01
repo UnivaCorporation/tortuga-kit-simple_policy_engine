@@ -19,7 +19,7 @@ import base64
 import cherrypy
 
 from tortuga.exceptions.invalidArgument import InvalidArgument
-from tortuga.web_service.controllers.authController import require
+from tortuga.web_service.auth.decorators import authentication_required
 from tortuga.web_service.controllers.tortugaController import \
     TortugaController
 from ..ruleManager import ruleManager
@@ -41,7 +41,7 @@ class ApplicationMonitorController(TortugaController):
 
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
-    @require()
+    @authentication_required()
     def receiveApplicationData(self, application_name):
         """
         Receive application monitoring data.
