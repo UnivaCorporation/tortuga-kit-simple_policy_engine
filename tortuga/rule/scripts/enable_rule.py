@@ -15,33 +15,31 @@
 # limitations under the License.
 
 from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
 
 
-class DeleteRuleCli(RuleCli):
+class EnableRuleCli(RuleCli):
     """
-    Delete rule command line interface.
+    Enable rule command line interface.
+
     """
     def __init__(self):
-        RuleCli.__init__(self)
-        self.addOption('--app-name', dest='applicationName', help=_('Application name'))
+        super().__init__()
+        self.addOption('--app-name', dest='applicationName',
+                       help=_('Application name'))
         self.addOption('--rule-name', dest='ruleName', help=_('Rule name'))
 
     def runCommand(self):
-        """ Run command. """
         self.parseArgs(_("""
-    delete-rule --app-name=APPNAME --rule-name=RULENAME
+    enable-rule --app-name=APPNAME --rule-name=RULENAME
 
 Description:
-    The  delete-rule  tool  removes  a  rule  from  from the Tortuga Rule
+    The enable-rule tool enables previously disabled rule in the Simple Policy
     Engine.
 """))
-        applicationName, ruleName = self.getApplicationNameAndRuleName()
-        api = getRuleApi(self.getUsername(), self.getPassword())
-        api.deleteRule(applicationName, ruleName)
-        print(_('Deleted rule %s/%s') % (applicationName, ruleName))
+
+        application_name, rule_name = self.getApplicationNameAndRuleName()
+        self.get_rule_api().enableRule(application_name, rule_name)
 
 
-if __name__ == '__main__':
-    cli = DeleteRuleCli()
-    cli.run()
+def main():
+    EnableRuleCli().run()

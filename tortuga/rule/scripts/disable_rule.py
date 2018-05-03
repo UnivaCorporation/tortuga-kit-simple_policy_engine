@@ -14,40 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=no-member
-
 from tortuga.rule.ruleCli import RuleCli
-from tortuga.rule.ruleApiFactory import getRuleApi
 
 
-class EnableRuleCli(RuleCli):
+class DisableRuleCli(RuleCli):
     """
-    Enable rule command line interface.
-    """
+    Disable rule command line interface.
 
+    """
     def __init__(self):
-        RuleCli.__init__(self)
-
+        super().__init__()
         self.addOption('--app-name', dest='applicationName',
                        help=_('Application name'))
         self.addOption('--rule-name', dest='ruleName', help=_('Rule name'))
 
     def runCommand(self):
-        """ Run command. """
         self.parseArgs(_("""
-    enable-rule --app-name=APPNAME --rule-name=RULENAME
+    disable-rule --app-name=APPNAME --rule-name=RULENAME
 
 Description:
-    The enable-rule tool enables previously disabled rule in the Simple Policy
+    The disable-rule tool disables currenly enabled rule in the Simple Policy
     Engine.
 """))
 
-        applicationName, ruleName = self.getApplicationNameAndRuleName()
-
-        api = getRuleApi(self.getUsername(), self.getPassword())
-
-        api.enableRule(applicationName, ruleName)
+        application_name, rule_name = self.getApplicationNameAndRuleName()
+        self.get_rule_api().disableRule(application_name, rule_name)
 
 
-if __name__ == '__main__':
-    EnableRuleCli().run()
+def main():
+    DisableRuleCli().run()
