@@ -36,10 +36,10 @@ class SimplePolicyEngineSetupApp(TortugaCli):
 
         self.addOption('--software-profile', metavar='NAME')
         self.addOption('--hardware-profile', metavar='NAME')
-        self.addOption('--slots-per-host', type='int', default=1,
+        self.addOption('--slots-per-host', type=int, default=1,
                        metavar='NUM',
                        help='Number of slots per burst host')
-        self.addOption('--polling-interval', type='int', default=300,
+        self.addOption('--polling-interval', type=int, default=300,
                        metavar='NUM',
                        help='Polling interval (in seconds) (default=%default)')
         self.addOption('--burst-queue', default='burst.q', metavar='NAME',
@@ -49,8 +49,8 @@ class SimplePolicyEngineSetupApp(TortugaCli):
     def parseArgs(self, usage=None):
         super(SimplePolicyEngineSetupApp, self).parseArgs(usage=usage)
 
-        if not self.getOptions().software_profile or \
-                not self.getOptions().hardware_profile:
+        if not self.getArgs().software_profile or \
+                not self.getArgs().hardware_profile:
             sys.stderr.write(
                 'Error: --software-profile and --hardware-profile'
                 ' arguments must be specified\n')
@@ -74,7 +74,7 @@ class SimplePolicyEngineSetupApp(TortugaCli):
 
             os.makedirs(script_dir)
         else:
-            if not self.getOptions().force:
+            if not self.getArgs().force:
                 sys.stderr.write('Script directory \"{0}\" already exists.\n'
                                  'Use --force to overwrite current'
                                  ' scripts\n'.format(script_dir))
@@ -96,11 +96,11 @@ class SimplePolicyEngineSetupApp(TortugaCli):
             'tortuga_root': cfgmgr.getRoot(),
             'uge_cell_dir': cell_dir,
             'script_dir': script_dir,
-            'burst_swprofile': self.getOptions().software_profile,
-            'burst_hwprofile': self.getOptions().hardware_profile,
+            'burst_swprofile': self.getArgs().software_profile,
+            'burst_hwprofile': self.getArgs().hardware_profile,
             'burst_queue': 'burst.q',
-            'polling_interval': self.getOptions().polling_interval,
-            'slots_per_host': self.getOptions().slots_per_host,
+            'polling_interval': self.getArgs().polling_interval,
+            'slots_per_host': self.getArgs().slots_per_host,
         }
 
         env = Environment(loader=FileSystemLoader('templates'),
