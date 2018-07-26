@@ -1,4 +1,4 @@
-# tortuga-kit-simple_policy_engine -test
+# tortuga-kit-simple_policy_engine
 
 ## Overview
 
