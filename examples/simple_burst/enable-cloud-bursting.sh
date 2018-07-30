@@ -150,9 +150,7 @@ get-software-profile --name ${burst_swprofile} &>/dev/null
 [[ $? -eq 0 ]] || {
     echo -n "Creating software profile '${burst_swprofile}'... "
 
-    create-software-profile \
-        -x $TORTUGA_ROOT/share/templates/software/defaultSoftwareProfile.tmpl.xml \
-        --name ${burst_swprofile} --no-os-media-required
+    create-software-profile --name ${burst_swprofile} --no-os-media-required
 
     echo "done."
 
@@ -199,9 +197,7 @@ get-hardware-profile --name ${burst_hwprofile} &>/dev/null
         } || {
             echo -n "  - Creating hardware profile from template"
 
-            create-hardware-profile \
-               -x $TORTUGA_ROOT/share/templates/hardware/defaultHardwareProfile.tmpl.xml \
-               --name ${burst_hwprofile} ${args}
+            create-hardware-profile --name ${burst_hwprofile} ${args}
 
             echo "done."
 
@@ -215,7 +211,7 @@ get-hardware-profile --name ${burst_hwprofile} &>/dev/null
     } || {
         echo "  - Creating new hardware profile \"${burst_hwprofile}\""
 
-        create-hardware-profile -x $TORTUGA_ROOT/share/templates/hardware/defaultHardwareProfile.tmpl.xml --name ${burst_hwprofile}
+        create-hardware-profile --name ${burst_hwprofile}
         [[ $? -eq 0 ]] || {
             echo "Error creating hardware profile [${burst_hwprofile}]" >&2
             exit 1

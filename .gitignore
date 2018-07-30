@@ -3,3 +3,4 @@ dist/
 *.egg-info/
 **/puppet_modules/**/pkg/
 __pycache__/
+.mypy_cache/
