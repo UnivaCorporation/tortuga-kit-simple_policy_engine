@@ -2,5 +2,6 @@
   "name": "simple_policy_engine",
   "version": "6.3.0",
   "iteration": "0",
-  "description": "Main component for providing support for the simple policy engine"
+  "description": "Main component for providing support for the simple policy engine",
+  "requires_core": "6.3.1-alpha+014"
 }

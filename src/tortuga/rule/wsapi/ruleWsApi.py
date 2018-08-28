@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import base64
-import json
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,6 +27,7 @@ class RuleWsApi(TortugaWsApi):
     Rule WS API class.
 
     """
+
     def getRule(self, applicationName, ruleName):
         """
         Get rule info.
@@ -39,20 +39,20 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}'.format(
+        url = 'rules/{0}/name/{1}'.format(
             urllib.parse.quote_plus(applicationName),
             urllib.parse.quote_plus(ruleName))
 
         try:
-            _, responseDict = self.sendSessionRequest(url)
-
+            responseDict = self.get(url)
             r = rule.Rule.getFromDict(responseDict.get('rule'))
-
             r.decode()
 
             return r
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -66,18 +66,18 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules'
+        url = 'rules'
 
         try:
-            _, responseDict = self.sendSessionRequest(url)
-
+            responseDict = self.get(url)
             ruleList = rule.Rule.getListFromDict(responseDict)
-
             ruleList.decode()
 
             return ruleList
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -93,25 +93,23 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}'.format(
+        url = 'rules/{0}/name/{1}'.format(
             urllib.parse.quote_plus(r.getApplicationName()),
             urllib.parse.quote_plus(r.getName()))
 
         try:
             r.encode()
-
             postdata = {
                 'rule': {
                     'xml': r.getXmlRep(),
                 }
             }
-
-            self.sendSessionRequest(
-                url, method='POST', data=json.dumps(postdata))
-
+            self.post(url, data=postdata)
             r.decode()
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -127,14 +125,16 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}'.format(
+        url = 'rules/{0}/name/{1}'.format(
             urllib.parse.quote_plus(applicationName),
             urllib.parse.quote_plus(ruleName))
 
         try:
-            self.sendSessionRequest(url, method='DELETE')
+            self.delete(url)
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -148,7 +148,7 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/applications/{0}/data'.format(
+        url = 'applications/{0}/data'.format(
             urllib.parse.quote_plus(applicationName))
 
         postdata = {
@@ -156,10 +156,11 @@ class RuleWsApi(TortugaWsApi):
         }
 
         try:
-            self.sendSessionRequest(
-                url, method='POST', data=json.dumps(postdata))
+            self.post(url, data=postdata)
+
         except TortugaException as ex:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -176,17 +177,16 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}/enable'.format(
+        url = 'rules/{0}/name/{1}/enable'.format(
             urllib.parse.quote_plus(applicationName),
             urllib.parse.quote_plus(ruleName))
 
-        postdata = {}
-
         try:
-            self.sendSessionRequest(
-                url, method='PUT', data=json.dumps(postdata))
+            self.put(url)
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -203,17 +203,16 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}/disable'.format(
+        url = 'rules/{0}/name/{1}/disable'.format(
             urllib.parse.quote_plus(applicationName),
             urllib.parse.quote_plus(ruleName))
 
-        postdata = {}
-
         try:
-            self.sendSessionRequest(
-                url, method='PUT', data=json.dumps(postdata))
+            self.put(url)
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
 
@@ -230,16 +229,17 @@ class RuleWsApi(TortugaWsApi):
                 TortugaException
         """
 
-        url = 'v1/rules/{0}/name/{1}/execute'.format(
+        url = 'rules/{0}/name/{1}/execute'.format(
             urllib.parse.quote_plus(applicationName),
             urllib.parse.quote_plus(ruleName))
 
         postdata = applicationData if applicationData else {}
 
         try:
-            self.sendSessionRequest(
-                url, method='PUT', data=json.dumps(dict(data=postdata)))
+            self.put(url, data=dict(data=postdata))
+
         except TortugaException:
             raise
+
         except Exception as ex:
             raise TortugaException(exception=ex)
