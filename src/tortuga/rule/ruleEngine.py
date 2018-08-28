@@ -54,7 +54,6 @@ class RuleEngine(RuleEngineInterface):
         self._rulesDir = self._cm.getRulesDir()
         self._logger = logging.getLogger(
             'tortuga.rule.%s' % self.__class__.__name__)
-        self._logger.addHandler(logging.NullHandler())
         self.__initRules()
 
         # the following are used for "receive" type monitoring

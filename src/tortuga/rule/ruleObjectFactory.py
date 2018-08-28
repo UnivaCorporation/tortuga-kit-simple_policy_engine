@@ -71,7 +71,6 @@ class RuleObjectFactory(object):
     def __init__(self):
         self._logger = logging.getLogger(
             'tortuga.rule.%s' % (self.__class__.__name__))
-        self._logger.addHandler(logging.NullHandler())
 
         # create engine and parser.
         self._engine = None
